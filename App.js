@@ -1,7 +1,12 @@
-import React, { useRef, useState }  from 'react';
+import React, { useRef, useState, useMemo, useCallback }  from 'react';
 import Wrapper from './Wrapper';
 import EmployeeList from './EmployeeList';
 import CreateEmployee from './CreateEmployee';
+
+function countActiveUsers(employees) {
+  console.log('활성 사용자 수를 세는중...');
+  return employees.filter(employee => employee.active).length;
+}
 
 function App() {
   // 배열 비구조화 할당 : 첫번째 원소는 현재 상태, 두번째 원소는 Setter 함수
@@ -11,13 +16,19 @@ function App() {
   });
   // 비구조화 할당을 통해 값 추출
   const { emplyeeName, email } = inputs;
-  const onChange = ev => {
-    const { name, value } = ev.target;
-    setInputs({
-      ...inputs,
-      [name]: value
-    });
-  };
+
+  // const onChange = ev => {
+  //   const { name, value } = ev.target;
+  //   setInputs({...inputs, [name]: value});
+  // };
+  const onChange = useCallback(ev => {
+      const { name, value } = ev.target;
+    setInputs(inputs => ({...inputs, [name]: value}));
+    }, []
+    //  setInputs({...inputs, [name]: value});
+    //}, [inputs]
+  );
+
   const [employees, setEmployees] = useState([
     {id: 1, emplyeeName: 'tommy', email: 'tommy@employee.com', active: true},
     {id: 2, emplyeeName: 'jimmy', email: 'jimmy@employee.com', active: false},
@@ -26,38 +37,49 @@ function App() {
   ]);
 
   const nextId = useRef(5);
-  const onCreate = () => {
-    const employee = {
-      id: nextId.current,
-      emplyeeName,
-      email
-    };
-    // 1. ... 문자가 바로 spread 연산자
-    // setEmployees([...employees, employee]);
-    // 2. concat 함수는 기존의 배열을 수정하지 않고, 새로운 원소가 추가된 새로운 배열
-    setEmployees(employees.concat(employee));
+  const onCreate = useCallback(() => {
+      const employee = {
+        id: nextId.current,
+        emplyeeName,
+        email
+      };
+      setEmployees(employees => [...employees, employee]);
+      // 1. ... 문자가 바로 spread 연산자
+      // setEmployees([...employees, employee]);
+      // 2. concat 함수는 기존의 배열을 수정하지 않고, 새로운 원소가 추가된 새로운 배열
+      // setEmployees(employees.concat(employee));
+      setInputs({
+        emplyeeName: '',
+        email: ''
+      });
+      nextId.current += 1;
+    //}, [employees, emplyeeName, email]
+    }, [emplyeeName, email]
+  );
 
-    setInputs({
-      emplyeeName: '',
-      email: ''
-    });
-    nextId.current += 1;
-  };
+  const onRemove = useCallback(id => {
+      // employee.id 가 파라미터로 일치하지 않는 원소만 추출해서 새로운 배열을 만듬
+      // = employee.id 가 id 인 것을 제거함
+      setEmployees(employees => employees.filter(employee => employee.id !== id));
+      // setEmployees(employees.filter(employee => employee.id !== id));
+    //}, [employees]
+    }, []
+  );
 
-  const onRemove = id => {
-    // employee.id 가 파라미터로 일치하지 않는 원소만 추출해서 새로운 배열을 만듬
-    // = employee.id 가 id 인 것을 제거함
-    setEmployees(employees.filter(employee => employee.id !== id));
-  };
-
-  const onToggle = id => {
-    setEmployees(
-      employees.map(employee =>
-        employee.id === id ? { ...employee, active: !employee.active } : employee
-      )
-    );
-  };
-
+  const onToggle = useCallback(id => {
+      setEmployees(employees =>
+        employees.map(employee =>
+          employee.id === id ? {...employee, active: !employee.active} : employee
+        )
+      );
+    //}, [employees]
+    }, []
+  );
+  
+  //const count = countActiveUsers(employees);
+  // [employees] 내용이 바뀌면 countActiveUsers(employees)
+  const count = useMemo(() => countActiveUsers(employees), [employees]);
+  
   return (
     // props.children
     <Wrapper>
@@ -69,7 +91,7 @@ function App() {
         onChange={onChange}
         onCreate={onCreate} 
       />
-
+      <div>활성사용자 수 : {count}</div>
     </Wrapper>
   );
 }
@@ -114,9 +136,9 @@ export default App;
 
 // JSX 지켜주어야 하는 몇가지 규칙
 // 1) 꼭 닫혀야 하는 태그
-// 2) 꼭 감싸져야하는 태그 : 두개 이상의 태그는 무조건 하나의 태그로 감싸져있어야 합니다. 
+// 2) 꼭 감싸져야하는 태그 : 두개 이상의 태그는 무조건 하나의 태그로 감싸져있어야 합니다. : React 16부터는 이 문제가 해결
 //   불필요한 div 로 감싸는게 별로 좋지 않은 상황,
-//   table 관련 태그를 작성 할 때에도 내용을 div 같은걸로 감싸기엔 애매할 땐, 리액트의 Fragment 라는 것을 사용
+//   table 관련 태그를 작성 할 때에도 내용을 div 같은걸로 감싸기엔 애매할 땐, 리액트의 Fragment 라는 것을 사용 (리액트 16.2부터)
 //   이름 없는 div 이면 Fragment 가 만들어지는데, Fragment 는 브라우저 상에서 따로 별도의 엘리먼트로 나타나지 않습니다.
 // 3) JSX 안에 자바스크립트 값 사용하기
 //   JSX 내부에 자바스크립트 변수를 보여줘야 할 때에는 {} 으로 감싸서 보여줍니다.
@@ -150,6 +172,8 @@ export default App;
 // in Hello.js     return <div>안녕하세요 {props.name}</div>
 // Hello.js 나 Wrapper.js 에서 값을 정한다 = props.children
 // in Wrapper.js   {children}
+
+// defaultProps, propTypes
 
 // 6. 조건부 렌더링 : 특정 조건에 따라 다른 결과물을 렌더링 하는 것을 의미합니다.
 // App 컴포넌트에서 Hello 컴포넌트를 사용 할 때, isSpecial 이라는 props 를 설정
@@ -191,7 +215,7 @@ export default App;
 // 1) input 의 onChange 라는 이벤트를 사용하는데요, 
 //  이벤트에 등록하는 함수에서는 이벤트 객체 ev 를 파라미터로 받아와서 사용 할 수 있는데 
 //  이 객체의 ev.target 은 이벤트가 발생한 DOM 인 input DOM 을 가르키게됩니다. 
-//  이 DOM 의 value 값, 즉 e.target.value 를 조회하면 현재 input 에 입력한 값이 무엇인지 알 수 있습니다.
+//  이 DOM 의 value 값, 즉 ev.target.value 를 조회하면 현재 input 에 입력한 값이 무엇인지 알 수 있습니다.
 // 2) input 의 상태를 관리할 때에는 input 태그의 value 값도 설정해주는 것이 중요
 //  그렇게 해야, 상태가 바뀌었을때 input 의 내용도 업데이트 됩니다.
 
@@ -283,20 +307,40 @@ export default App;
 //  2) useEffect를 사용하여 마운트/언마운트/업데이트 시 할 작업 설정하기
 //   (1) useEffect 라는 Hook 을 사용하여 1. 컴포넌트가 마운트 됐을 때 (처음 나타났을 때) 2. 언마운트 됐을 때 (사라질 때) 
 //      3. 업데이트 될 때 (특정 props가 바뀔 때) 특정 작업을 처리
-//     (cf) 첫번째 파라미터에는 함수, 두번째 파라미터에는 의존값이 들어있는 배열(deps)
-//          deps 배열을 비우게 된다면, 컴포넌트가 처음 나타날때에만 useEffect 에 등록한 함수가 호출
-//          useEffect 에서는 함수를 반환(cleanup 함수) : deps 가 비어있는 경우에는 컴포넌트가 사라질 때 cleanup 함수가 호출
-//          (1) 마운트 시에 하는 작업
-//            props 로 받은 값을 컴포넌트의 로컬 상태로 설정
-//            외부 API 요청 (REST API 등)
-//            라이브러리 사용 (D3, Video.js 등...)
-//            setInterval 을 통한 반복작업 혹은 setTimeout 을 통한 작업 예약
-//          (2) 언마운트 시에 하는 작업
-//            setInterval, setTimeout 을 사용하여 등록한 작업들 clear 하기 (clearInterval, clearTimeout)
-//            라이브러리 인스턴스 제거
-//   (2) deps 에 특정 값 넣기 
-//     deps 에 특정 값을 넣게 된다면, 컴포넌트가 처음 마운트 될 때에도 호출이 되고, 지정한 값이 바뀔 때에도 호출이 됩니다. 
-//     deps 에 특정 값이 있다면 언마운트시에도 호출이되고, 값이 바뀌기 직전에도 호출이 됩니다
+//   (2) 첫번째 파라미터에는 함수, 두번째 파라미터에는 의존값이 들어있는 배열(deps)
+//     1. 컴포넌트가 마운트 됐을 때 (처음 나타났을 때)
+//        deps에 [] 빈배열을 넣을 떄 life cycle중 componentDidmount처럼 실행
+//     2. 언마운트 됐을 때 (사라질 때) : useEffect return 함수(cleanup 함수)
+//        componentWillUnmount처럼 실행
+//     3. deps에 넣은 파라미터값이 업데이트
+//        componentDidUpdate처럼 실행.
+//     4. 마운트 시에 하는 작업
+//        props 로 받은 값을 컴포넌트의 로컬 상태로 설정
+//        외부 API 요청 (REST API 등)
+//        라이브러리 사용 (D3, Video.js 등...)
+//        setInterval 을 통한 반복작업 혹은 setTimeout 을 통한 작업 예약
+//     5. 언마운트 시에 하는 작업
+//        라이브러리 인스턴스 제거 (D3, Video.js 등...)
+//        setInterval, setTimeout 을 사용하여 등록한 작업들 clear 하기 (clearInterval, clearTimeout)
+//   (3) deps 에 특정 값 넣기 
+//     deps 에 특정 값을 넣게 된다면 컴포넌트가 처음 마운트 될 때에도 호출 : 첫번째 파라미터
+//     지정한 값이 바뀔 때 값이 바뀌기 직전호출 : return -> 첫번째 파라미터
+//   (4) deps 파라미터를 생략하기
+//     컴포넌트가 리렌더링 될 때마다 호출
+//     부모컴포넌트가 리렌더링되면 바뀐 내용이 없다 할지라도 자식 컴포넌트 또한 리렌더링이 됩니다. 
+//  3) useMemo 를 사용하여 연산한 값 재사용하기 : 성능 최적화
+//    countActiveUsers 라는 함수를 만들어서, active 값이 true 인 사용자의 수를 세어서 화면에 렌더링
+//    input 의 값을 바꿀때에도 countActiveUsers 함수가 호출 : 불필요 호출, 자원이 낭비
+//    -> useMemo 라는 Hook 함수를 사용하면 성능을 최적화 
+//    useMemo 의 첫번째 파라미터에는 어떻게 연산할지 정의하는 함수, 두번째 파라미터에는 deps 배열
+//    배열 안에 넣은 내용이 바뀌면 함수를 호출해서 값을 연산, 내용이 바뀌지 않았다면 이전에 연산한 값을 재사용
+//  4)  useCallback 을 사용하여 함수 재사용하기
+//    useMemo 는 특정 결과값을 재사용 할 때 사용, useCallback 은 특정 함수를 새로 만들지 않고 재사용하고 싶을때 사용
+//  5) React.memo 를 사용한 컴포넌트 리렌더링 방지
+//    input 이 바뀔 때에도 EmployeeList 컴포넌트가 리렌더링 : deps 에 employees 가 들어있기 때문에 
+//    배열이 바뀔때마다 함수를 리렌더링, deps 에 employees 를 지우고 함수들에서 useState  employees 를 참조하지 않게 하는것
+//    함수형 업데이트를 하게 되면, setEmployees 에 등록하는 콜백함수의 파라미터에서 최신 employees 를 참조
+//    deps 에 employees 를 넣지 않아도 된다  -> 컴포넌트의 props 가 바뀌지 않았다면 리렌더링을 방지 
 //
 //
 //
@@ -306,6 +350,30 @@ export default App;
 //
 //
 //
+//
+//  리액트 개발 할 때 사용하면 편리한 도구들 - Prettier, ESLint, Snippet
+//  1) Prettier 는 자동으로 코드의 스타일을 관리해주는 도구
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+
 
 
 

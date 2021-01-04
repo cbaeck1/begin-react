@@ -1,6 +1,7 @@
 import React from 'react';
 
-function CreateEmployee({ emplyeeName, email, onChange, onCreate }) {
+// function CreateEmployee({ emplyeeName, email, onChange, onCreate }) {
+const CreateEmployee = ({ emplyeeName, email, onChange, onCreate }) => {
   return (
     <div>
       <input
@@ -20,4 +21,5 @@ function CreateEmployee({ emplyeeName, email, onChange, onCreate }) {
   );
 }
 
-export default CreateEmployee;
+// export default CreateEmployee;
+export default React.memo(CreateEmployee);
